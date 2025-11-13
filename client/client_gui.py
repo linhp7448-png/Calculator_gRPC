@@ -30,7 +30,7 @@ class CalculatorGUI:
         self.history = []
 
         # Entry hiển thị biểu thức
-        self.entry = ttk.Entry(self.window, font=("Consolas", 24), justify='right')
+        self.entry = ttk.Entry(self.window, font=("Consolas", 50), justify='right')
         self.entry.pack(fill='x', padx=10, pady=10, ipady=15)
 
         # Khu vực hiển thị lịch sử
