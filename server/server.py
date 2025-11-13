@@ -3,10 +3,13 @@ import os
 import math
 import re
 import grpc
+import logging
 from concurrent import futures
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proto import calculator_pb2, calculator_pb2_grpc
+
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 
 class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
     def Calculate(self, request, context):
