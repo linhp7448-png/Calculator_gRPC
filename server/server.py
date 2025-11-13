@@ -35,7 +35,8 @@ class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
 
             return calculator_pb2.CalculatorResponse(result=float(result))
         except Exception as e:
-            return calculator_pb2.CalculatorResponse(error=str(e))
+            logging.error(f"Lỗi khi xử lý biểu thức '{expr}': {e}")
+            return calculator_pb2.CalculatorResponse(error="Lỗi xử lý biểu thức")
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
