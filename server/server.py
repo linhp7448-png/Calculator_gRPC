@@ -46,6 +46,12 @@ def serve():
     server.start()
     server.wait_for_termination()
 
+    try:
+        server.wait_for_termination()
+    except KeyboardInterrupt:
+        logging.info("🛑 Server dừng thủ công.")
+        server.stop(0)
+
 if __name__ == "__main__":
     serve()
 
