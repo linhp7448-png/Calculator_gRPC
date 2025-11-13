@@ -18,6 +18,9 @@ class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
 
         if not expr:
             return calculator_pb2.CalculatorResponse(error="Biểu thức trống")
+            
+        if not re.match(r'^[\d\s\+\-\*\/\^\(\)\.a-zA-Z,_]*$', expr):
+            return calculator_pb2.CalculatorResponse(error="Biểu thức chứa ký tự không hợp lệ")
 
         try:
             expr = expr.replace('^', '**')
