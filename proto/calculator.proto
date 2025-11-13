@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package calculator;
+
+// Message yêu cầu từ Client gửi tới Server
+message CalculatorRequest {
+  string expression = 1;
+}
+
+// Message phản hồi từ Server
+message CalculatorResponse {
+  double result = 1;
+  string error = 2;
+}
+
+// Service chính
+service CalculatorService {
+  rpc Calculate (CalculatorRequest) returns (CalculatorResponse);
+}
