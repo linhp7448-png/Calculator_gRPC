@@ -30,12 +30,12 @@ class CalculatorGUI:
         self.history = []
 
         # Entry hiển thị biểu thức
-        self.entry = ttk.Entry(self.window, font=("Consolas", 50), justify='right')
+        self.entry = ttk.Entry(self.window, font=("Consolas", 38), justify='right')
         self.entry.pack(fill='x', padx=10, pady=10, ipady=15)
 
         # Khu vực hiển thị lịch sử
-        ttk.Label(self.window, text="Lịch sử tính toán:", font=("Arial", 11, "bold")).pack(anchor="w", padx=10)
-        self.history_box = scrolledtext.ScrolledText(self.window, height=6, font=("Consolas", 12), state='disabled')
+        ttk.Label(self.window, text="Lịch sử tính toán:", font=("Arial", 32, "bold")).pack(anchor="w", padx=10)
+        self.history_box = scrolledtext.ScrolledText(self.window, height=6, font=("Consolas", 22), state='disabled')
         self.history_box.pack(fill='both', expand=False, padx=10, pady=5)
 
         # Các nút
