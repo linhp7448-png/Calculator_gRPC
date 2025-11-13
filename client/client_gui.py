@@ -1,5 +1,12 @@
 import sys, os, grpc, tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox
+try:
+    import ttkthemes as tkm
+    THEMED_TK = True
+except ImportError:
+    THEMED_TK = False
+    print("Warning: ttkthemes not installed. Falling back to default tkinter theme.")
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from proto import calculator_pb2, calculator_pb2_grpc
@@ -16,94 +23,100 @@ class CalculatorClient:
             return f"Error: {response.error}"
         return response.result
 
-
 class CalculatorGUI:
     def __init__(self):
         self.client = CalculatorClient()
-        self.window = tk.Tk()
+        
+        if THEMED_TK:
+            self.window = tkm.ThemedTk()
+            self.window.set_theme("scidgrey") 
+        else:
+            self.window = tk.Tk()
+            self.window.configure(bg='#f2f2f2') 
+            
         self.window.title("🔢 Scientific Calculator (gRPC)")
-        self.window.geometry("480x680")
+        self.window.geometry("400x650") 
         self.window.resizable(True, True)
-
-        # Biểu thức và lịch sử
+        
         self.expression = ""
-        self.history = []
+        
+        self.entry = tk.Entry(
+            self.window, 
+            font=("Arial", 32, 'bold'), 
+            justify='right', 
+            bd=0, 
+            relief=tk.FLAT, 
+            bg='#ffffff', 
+            fg='#333333', 
+            insertbackground='#333333'
+        )
+        display_frame = tk.Frame(self.window, bg='#ffffff')
+        display_frame.pack(fill='x', padx=10, pady=20)
+        self.entry.pack(fill='x', ipady=30, padx=10) 
 
-        # Entry hiển thị biểu thức
-        self.entry = ttk.Entry(self.window, font=("Consolas", 38), justify='right')
-        self.entry.pack(fill='x', padx=10, pady=10, ipady=15)
 
-        # Khu vực hiển thị lịch sử
-        ttk.Label(self.window, text="Lịch sử tính toán:", font=("Arial", 32, "bold")).pack(anchor="w", padx=10)
-        self.history_box = scrolledtext.ScrolledText(self.window, height=6, font=("Consolas", 22), state='disabled')
-        self.history_box.pack(fill='both', expand=False, padx=10, pady=5)
+        style = ttk.Style()
+        style.configure('TButton', font=('Arial', 16, 'bold'), borderwidth=0, relief=tk.FLAT, padding=10)
+        style.map('TButton', background=[('active', '#e0e0e0')]) 
 
-        # Các nút
+        style.configure('Num.TButton', background='#ffffff', foreground='#333333')
+        style.configure('Op.TButton', background='#e0e0e0', foreground='#007aff') 
+        style.configure('Eq.TButton', background='#007aff', foreground='white')
+        style.configure('Func.TButton', background='#d0d0d0', foreground='#ff3b30')
+
+
         buttons = [
             ['7', '8', '9', '/', 'sqrt'],
             ['4', '5', '6', '*', '^'],
             ['1', '2', '3', '-', '('],
             ['0', '.', '=', '+', ')'],
-            ['sin', 'cos', 'tan', 'log', 'C', '⌫']
+            ['sin', 'cos', 'tan', 'log', 'C']
         ]
 
         frame = ttk.Frame(self.window)
-        frame.pack(expand=True, fill='both')
+        frame.pack(expand=True, fill='both', padx=10, pady=5)
 
         for r, row in enumerate(buttons):
             for c, b in enumerate(row):
+                style_name = 'Num.TButton'
+                if b in ['/', '*', '-', '+', '^']:
+                    style_name = 'Op.TButton'
+                elif b in ['sqrt', 'sin', 'cos', 'tan', 'log']:
+                    style_name = 'Op.TButton'
+                elif b == 'C':
+                    style_name = 'Func.TButton'
+                elif b == '=':
+                    style_name = 'Eq.TButton'
+
                 ttk.Button(
-                    frame, text=b, command=lambda x=b: self.on_click(x)
-                ).grid(row=r, column=c, sticky='nsew', padx=3, pady=3, ipadx=5, ipady=10)
+                    frame, 
+                    text=b, 
+                    command=lambda x=b: self.on_click(x),
+                    style=style_name 
+                ).grid(row=r, column=c, sticky='nsew', padx=4, pady=4) 
 
-        for i in range(len(buttons)):
+        for i in range(5):
             frame.rowconfigure(i, weight=1)
-        for j in range(len(buttons[0])):
-            frame.columnconfigure(j, weight=1)
-
-        # Ràng buộc bàn phím
-        self.window.bind("<Key>", self.on_key_press)
-        self.window.bind("<Return>", lambda e: self.on_click('='))
-        self.window.bind("<BackSpace>", lambda e: self.on_click('⌫'))
-        self.window.bind("<Escape>", lambda e: self.on_click('C'))
+            frame.columnconfigure(i, weight=1)
 
     def on_click(self, char):
         if char == 'C':
             self.expression = ""
-        elif char == '⌫':
-            self.expression = self.expression[:-1]
         elif char == '=':
             try:
                 result = self.client.calculate(self.expression)
-                self.add_to_history(self.expression, result)
                 self.expression = str(result)
             except Exception as e:
-                messagebox.showerror("Error", str(e))
+                messagebox.showerror("Lỗi gRPC/Server", str(e))
                 self.expression = ""
         else:
             self.expression += char
-
+        
         self.entry.delete(0, tk.END)
         self.entry.insert(tk.END, self.expression)
 
-    def on_key_press(self, event):
-        key = event.char
-        allowed_chars = "0123456789+-*/().^"
-        if key in allowed_chars:
-            self.expression += key
-            self.entry.delete(0, tk.END)
-            self.entry.insert(tk.END, self.expression)
-
-    def add_to_history(self, expression, result):
-        self.history.append(f"{expression} = {result}")
-        self.history_box.config(state='normal')
-        self.history_box.insert(tk.END, f"{expression} = {result}\n")
-        self.history_box.config(state='disabled')
-        self.history_box.yview_moveto(1)
-
     def run(self):
         self.window.mainloop()
-
 
 if __name__ == "__main__":
     gui = CalculatorGUI()
