@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(m
 class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
     def Calculate(self, request, context):
         expr = request.expression.strip()
-        logging(f"[SERVER] Nhận biểu thức: {expr}")
+        logging.info(f"[SERVER] Nhận biểu thức: {expr}")
 
         if not expr:
             return calculator_pb2.CalculatorResponse(error="Biểu thức trống")
@@ -42,7 +42,7 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     calculator_pb2_grpc.add_CalculatorServiceServicer_to_server(CalculatorService(), server)
     server.add_insecure_port('[::]:50051')
-    logging("✅ Server đang chạy tại cổng 50051...")
+    logging.info("✅ Server đang chạy tại cổng 50051...")
     server.start()
     server.wait_for_termination()
 
