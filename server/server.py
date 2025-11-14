@@ -17,13 +17,17 @@ class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
         logging.info(f"[SERVER] Nhận biểu thức: {expr}")
 
         if not expr:
-            return calculator_pb2.CalculatorResponse(error="Biểu thức trống")
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("Biểu thức không được để trống")
+            return calculator_pb2.CalculatorResponse() 
             
         if not re.match(r'^[\d\s\+\-\*\/\^\(\)\.a-zA-Z,_]*$', expr):
-            return calculator_pb2.CalculatorResponse(error="Biểu thức chứa ký tự không hợp lệ")
+            
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("Biểu thức chứa ký tự không hợp lệ")
+            return calculator_pb2.CalculatorResponse()
 
         try:
-            expr = expr.replace('^', '**')
             expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
             expr = re.sub(r'\)(\d)', r')*\1', expr)
             expr = re.sub(r'\)([a-zA-Z])', r')*\1', expr)
@@ -34,9 +38,15 @@ class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
             result = eval(expr, {"__builtins__": None}, safe_math)
 
             return calculator_pb2.CalculatorResponse(result=float(result))
+        except ZeroDivisionError:
+            logging.error(f"Lỗi chia cho 0: '{expr}'")
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Lỗi tính toán: Không thể chia cho 0")
+        except SyntaxError:
+            logging.error(f"Lỗi cú pháp: '{expr}'") 
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Lỗi cú pháp: Biểu thức không hợp lệ")
         except Exception as e:
-            logging.error(f"Lỗi khi xử lý biểu thức '{expr}': {e}")
-            return calculator_pb2.CalculatorResponse(error="Lỗi xử lý biểu thức")
+            logging.error(f"Lỗi không xác định '{expr}': {e}") 
+            context.abort(grpc.StatusCode.INTERNAL, f"Lỗi máy chủ: {e}")
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
