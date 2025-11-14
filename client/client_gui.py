@@ -39,6 +39,7 @@ class CalculatorGUI:
         self.window.resizable(True, True)
         
         self.expression = ""
+        self.just_calculated = False
         
         display_frame = tk.Frame(self.window, bg='#ffffff')
         display_frame.pack(fill='x', padx=10, pady=20)
@@ -84,9 +85,9 @@ class CalculatorGUI:
 
         buttons = [
             ['7', '8', '9', '/', 'sqrt'],
-            ['4', '5', '6', '*', '^'],
-            ['1', '2', '3', '-', '('],
-            ['0', '.', '=', '+', ')'],
+            ['4', '5', '6', '*', '('],
+            ['1', '2', '3', '-', ')'],
+            ['0', '.', '=', '+', 'x'],
             ['sin', 'cos', 'tan', 'log', 'C']
         ]
 
@@ -166,21 +167,43 @@ class CalculatorGUI:
     def on_click(self, char):
         if char == 'C':
             self.expression = ""
+            self.just_calculated = False 
+
+        elif char == 'x':
+            self.expression = self.expression[:-1] 
+            self.just_calculated = False 
+
         elif char == '=':
             try:
                 current_expression = self.expression
-                result = self.client.calculate(current_expression)
-                if isinstance(result, str) and result.startswith("Error:"):
-                    messagebox.showerror("Lỗi gRPC/Server", result)
-                    self.expression = ""
-                else:
-                    self.expression = str(result)
-                    self._add_to_history(current_expression, self.expression)
-            except Exception as e:
-                messagebox.showerror("Lỗi gRPC/Server", str(e))
+                response = self.client.stub.Calculate(
+                    calculator_pb2.CalculatorRequest(expression=current_expression)
+                )
+                self.expression = str(response.result)
+                self._add_to_history(current_expression, self.expression)
+                self.just_calculated = True 
+            
+            except grpc.RpcError as e:
+                messagebox.showerror(f"Lỗi Server ({e.code()})", e.details())
                 self.expression = ""
-        else:
-            self.expression += char
+                self.just_calculated = False 
+            except Exception as e:
+                messagebox.showerror("Lỗi Client", str(e))
+                self.expression = ""
+                self.just_calculated = False 
+        
+        else: 
+            
+            if self.just_calculated:
+                if char in ['/', '*', '-', '+']:
+                    self.expression += char
+                else:
+                    self.expression = char
+                
+                self.just_calculated = False
+            
+            else:
+                self.expression += char
         
         self.entry.delete(0, tk.END)
         self.entry.insert(tk.END, self.expression)
