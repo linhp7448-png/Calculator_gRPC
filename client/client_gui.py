@@ -1,8 +1,9 @@
 import sys, os, grpc, tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proto import calculator_pb2, calculator_pb2_grpc
+
 
 class CalculatorClient:
     def __init__(self):
@@ -21,24 +22,70 @@ class CalculatorGUI:
     def __init__(self):
         self.client = CalculatorClient()
         self.window = tk.Tk()
-        self.window.title("🔢 Scientific Calculator (gRPC)")
-        self.window.geometry("480x680")
-        self.window.resizable(True, True)
+        self.window.title("Scientific Calculator (gRPC)")
+        self.window.geometry("600x950")
+        self.window.configure(bg="#f4f4f4")
 
-        # Biểu thức và lịch sử
         self.expression = ""
         self.history = []
+        self.history_index = -1
 
-        # Entry hiển thị biểu thức
-        self.entry = ttk.Entry(self.window, font=("Consolas", 24), justify='right')
-        self.entry.pack(fill='x', padx=10, pady=10, ipady=15)
+        # ======================
+        # ENTRY
+        # ======================
+        self.entry = tk.Entry(
+            self.window, font=("Consolas", 40),
+            justify='right', bd=5, relief="sunken"
+        )
+        self.entry.pack(fill='x', padx=20, pady=20, ipady=20)
 
-        # Khu vực hiển thị lịch sử
-        ttk.Label(self.window, text="Lịch sử tính toán:", font=("Arial", 11, "bold")).pack(anchor="w", padx=10)
-        self.history_box = scrolledtext.ScrolledText(self.window, height=6, font=("Consolas", 12), state='disabled')
-        self.history_box.pack(fill='both', expand=False, padx=10, pady=5)
+        # ======================
+        # DROPDOWN CHUYỂN ĐỔI
+        # ======================
+        convert_frame = tk.Frame(self.window, bg="#f4f4f4")
+        convert_frame.pack(pady=10)
 
-        # Các nút
+        tk.Label(convert_frame, text="Chuyển đổi °C ↔ °F ↔ K",
+                 font=("Arial", 22, "bold"), bg="#f4f4f4").pack()
+
+        self.combo = ttk.Combobox(
+            convert_frame,
+            values=["C → F", "F → C", "C → K", "K → C", "F → K", "K → F"],
+            width=20,
+            font=("Arial", 18),
+            state="readonly"
+        )
+        self.combo.set("Chọn phép chuyển đổi")
+        self.combo.pack(pady=10)
+
+        ttk.Button(
+            convert_frame,
+            text="Thực hiện",
+            command=self.perform_convert
+        ).pack()
+
+        # ======================
+        # LỊCH SỬ
+        # ======================
+        tk.Label(self.window, text="Lịch sử:", font=("Arial", 28, "bold"),
+                 bg="#f4f4f4").pack(anchor="w", padx=20)
+
+        self.history_box = scrolledtext.ScrolledText(
+            self.window, height=5,
+            font=("Consolas", 22),
+            state='disabled'
+        )
+        self.history_box.pack(fill="both", padx=20, pady=10)
+
+        self.history_box.bind("<Button-1>", self.on_history_click)
+        self.history_box.bind("<Double-1>", self.on_history_double_click)
+
+        # ======================
+        # BÀN PHÍM
+        # ======================
+        button_frame = tk.Frame(self.window, bg="#f4f4f4")
+        button_frame.pack(fill='both', expand=True)
+
         buttons = [
             ['7', '8', '9', '/', 'sqrt'],
             ['4', '5', '6', '*', '^'],
@@ -47,64 +94,150 @@ class CalculatorGUI:
             ['sin', 'cos', 'tan', 'log', 'C', '⌫']
         ]
 
-        frame = ttk.Frame(self.window)
-        frame.pack(expand=True, fill='both')
-
         for r, row in enumerate(buttons):
-            for c, b in enumerate(row):
-                ttk.Button(
-                    frame, text=b, command=lambda x=b: self.on_click(x)
-                ).grid(row=r, column=c, sticky='nsew', padx=3, pady=3, ipadx=5, ipady=10)
+            for c, char in enumerate(row):
+                btn = tk.Button(
+                    button_frame, text=char,
+                    font=("Arial", 22, "bold"),
+                    width=4, height=2,
+                    bg="white", fg="black",
+                    activebackground="#ddd",
+                    relief="raised", bd=3,
+                    command=lambda x=char: self.on_click(x)
+                )
+                btn.grid(row=r, column=c, padx=6, pady=6, sticky="nsew")
 
         for i in range(len(buttons)):
-            frame.rowconfigure(i, weight=1)
-        for j in range(len(buttons[0])):
-            frame.columnconfigure(j, weight=1)
+            button_frame.rowconfigure(i, weight=1)
+        for i in range(len(buttons[0])):
+            button_frame.columnconfigure(i, weight=1)
 
-        # Ràng buộc bàn phím
+        # ===== PHÍM TẮT =====
         self.window.bind("<Key>", self.on_key_press)
         self.window.bind("<Return>", lambda e: self.on_click('='))
         self.window.bind("<BackSpace>", lambda e: self.on_click('⌫'))
         self.window.bind("<Escape>", lambda e: self.on_click('C'))
+        self.window.bind("<Up>", self.use_previous_expression)
 
+    # ======================
+    # XỬ LÝ CHUYỂN ĐỔI
+    # ======================
+    def perform_convert(self):
+        mode = self.combo.get()
+        if "→" not in mode:
+            messagebox.showwarning("Thông báo", "Vui lòng chọn chế độ chuyển đổi!")
+            return
+
+        try:
+            value = float(self.entry.get())
+        except:
+            messagebox.showerror("Lỗi", "Giá trị nhập không hợp lệ!")
+            return
+
+        C, F, K = None, None, None
+
+        if mode == "C → F":
+            result = value * 9/5 + 32
+        elif mode == "F → C":
+            result = (value - 32) * 5/9
+        elif mode == "C → K":
+            result = value + 273.15
+        elif mode == "K → C":
+            result = value - 273.15
+        elif mode == "F → K":
+            result = (value - 32) * 5/9 + 273.15
+        elif mode == "K → F":
+            result = (value - 273.15) * 9/5 + 32
+
+        self.expression = str(result)
+        self.update_entry()
+
+    # ======================
+    # LỊCH SỬ
+    # ======================
+    def on_history_click(self, event):
+        index = self.history_box.index("@%s,%s" % (event.x, event.y))
+        line = self.history_box.get(index + " linestart", index + " lineend")
+        if "=" in line:
+            expr = line.split("=")[0].strip()
+            self.expression = expr
+            self.update_entry()
+
+    def on_history_double_click(self, event):
+        index = self.history_box.index("@%s,%s" % (event.x, event.y))
+        line = self.history_box.get(index + " linestart", index + " lineend")
+        if "=" in line:
+            result = line.split("=")[1].strip()
+            self.expression = result
+            self.update_entry()
+
+    # ======================
+    # MŨI TÊN LÊN
+    # ======================
+    def use_previous_expression(self, event):
+        if not self.history:
+            return
+
+        if self.history_index == -1:
+            self.history_index = len(self.history) - 1
+        else:
+            self.history_index = max(0, self.history_index - 1)
+
+        expr = self.history[self.history_index].split("=")[0].strip()
+        self.expression = expr
+        self.update_entry()
+
+    # ======================
+    # XỬ LÝ NÚT
+    # ======================
     def on_click(self, char):
         if char == 'C':
             self.expression = ""
-        elif char == '⌫':
+            self.update_entry()
+            return
+
+        if char == '⌫':
             self.expression = self.expression[:-1]
-        elif char == '=':
+            self.update_entry()
+            return
+
+        if char == '=':
             try:
                 result = self.client.calculate(self.expression)
                 self.add_to_history(self.expression, result)
                 self.expression = str(result)
+                self.history_index = -1
             except Exception as e:
                 messagebox.showerror("Error", str(e))
                 self.expression = ""
-        else:
-            self.expression += char
+            self.update_entry()
+            return
 
-        self.entry.delete(0, tk.END)
-        self.entry.insert(tk.END, self.expression)
+        self.expression += char
+        self.update_entry()
 
+    # ======================
     def on_key_press(self, event):
-        key = event.char
-        allowed_chars = "0123456789+-*/().^"
-        if key in allowed_chars:
-            self.expression += key
-            self.entry.delete(0, tk.END)
-            self.entry.insert(tk.END, self.expression)
+        if event.char in "0123456789+-*/().^":
+            self.expression += event.char
+            self.update_entry()
 
-    def add_to_history(self, expression, result):
-        self.history.append(f"{expression} = {result}")
+    def add_to_history(self, expr, result):
+        line = f"{expr} = {result}"
+        self.history.append(line)
+
         self.history_box.config(state='normal')
-        self.history_box.insert(tk.END, f"{expression} = {result}\n")
+        self.history_box.insert(tk.END, line + "\n")
         self.history_box.config(state='disabled')
         self.history_box.yview_moveto(1)
+
+    def update_entry(self):
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, self.expression)
 
     def run(self):
         self.window.mainloop()
 
 
 if __name__ == "__main__":
-    gui = CalculatorGUI()
-    gui.run()
+    CalculatorGUI().run()
