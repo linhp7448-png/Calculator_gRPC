@@ -28,12 +28,13 @@ class CalculatorService(calculator_pb2_grpc.CalculatorServiceServicer):
             return calculator_pb2.CalculatorResponse()
 
         try:
+            expr = expr.replace('^', '**')
             expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
             expr = re.sub(r'\)(\d)', r')*\1', expr)
             expr = re.sub(r'\)([a-zA-Z])', r')*\1', expr)
 
             safe_math = {k: getattr(math, k) for k in dir(math) if not k.startswith("__")}
-            safe_math.update({"abs": abs, "pow": pow})
+            safe_math.update({"abs": abs, "pow": pow,  "ln": math.log, "log": math.log10})
 
             result = eval(expr, {"__builtins__": None}, safe_math)
 
